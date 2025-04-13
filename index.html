@@ -1,0 +1,228 @@
+<!-- This is a template OpenLayers web application for displaying MapServer WMS layers. -->
+<!-- To use this template, ensure your MapServer instance is running and accessible. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Middleton Map</title> <!-- Changed Title -->
+    <!-- OpenLayers CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.1.0/ol.css">
+    <style>
+        /* Basic styling */
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            font-family: sans-serif;
+        }
+        #container {
+            display: flex;
+            height: 100%;
+            width: 100%;
+        }
+        #sidebar {
+            width: 250px; /* Adjust width as needed */
+            padding: 15px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            overflow-y: auto; /* Allow scrolling if content overflows */
+            background-color: #f8f9fa;
+            flex-shrink: 0; /* Prevent sidebar from shrinking */
+        }
+        #map {
+            flex-grow: 1; /* Map takes remaining width */
+            height: 100%;
+        }
+        h1 {
+            text-align: center;
+            margin-top: 0;
+            color: #333;
+        }
+        h2 {
+            margin-top: 20px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 5px;
+            font-size: 1.1em;
+        }
+        .layer-item label {
+            display: block; /* Ensure label takes full width */
+            margin-bottom: 5px;
+            cursor: pointer;
+        }
+        .layer-item input {
+            margin-right: 8px;
+        }
+        #legend img {
+            display: block; /* Ensure images are block elements */
+            margin-bottom: 10px; /* Space between legend items */
+            max-width: 100%; /* Prevent large legends overflowing */
+        }
+        #legend p {
+            font-weight: bold;
+            margin-bottom: 5px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Main container for layout -->
+    <div id="container">
+        <!-- Sidebar for controls and legend -->
+        <div id="sidebar">
+            <h1>Middleton Map</h1>
+
+            <!-- Layer Switcher Section -->
+            <div id="layer-switcher">
+                <h2>Layers</h2>
+                <!-- Checkboxes will be added here by JavaScript -->
+            </div>
+
+            <!-- Legend Section -->
+            <div id="legend">
+                <h2>Legend</h2>
+                <!-- Legend images will be added here by JavaScript -->
+            </div>
+        </div>
+
+        <!-- The div where the map will be rendered -->
+        <div id="map"></div>
+    </div>
+
+    <!-- OpenLayers JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/ol@v9.1.0/dist/ol.js"></script>
+
+    <script>
+        // --- Configuration ---
+        const wmsUrl = 'http://127.0.0.1/cgi-bin/mapserv.exe'; // Base URL for mapserv.exe
+        const mapFilePath = 'C:/ms4w/apps/ModelApp/my_service.map'; // Path to your map file on the server
+
+        const centerLonLat = [-65.0674, 44.9440];
+        const initialZoom = 13;
+
+        // --- WMS Layer Definitions ---
+        // Store layers in an array for easier management
+        const layers = [
+            new ol.layer.Image({
+                source: new ol.source.ImageWMS({
+                    url: wmsUrl,
+                    params: {'MAP': mapFilePath, 'LAYERS': 'Forest', 'FORMAT': 'image/png', 'TRANSPARENT': 'TRUE'},
+                    serverType: 'mapserver'
+                }),
+                opacity: 0.8,
+                visible: true,
+                title: 'Forest' // Use title for switcher and legend
+            }),
+            new ol.layer.Tile({
+                source: new ol.source.TileWMS({
+                    url: wmsUrl,
+                    params: {'MAP': mapFilePath, 'LAYERS': 'roads', 'FORMAT': 'image/png', 'TILED': true},
+                    serverType: 'mapserver'
+                }),
+                visible: true,
+                title: 'Roads'
+            }),
+            new ol.layer.Tile({
+                source: new ol.source.TileWMS({
+                    url: wmsUrl,
+                    params: {'MAP': mapFilePath, 'LAYERS': 'buildings', 'FORMAT': 'image/png', 'TILED': true},
+                    serverType: 'mapserver'
+                }),
+                visible: true,
+                title: 'Buildings'
+                // minZoom: 14 // Optional OpenLayers-side visibility
+            })
+        ];
+
+        // --- Map Initialization ---
+        const map = new ol.Map({
+            target: 'map',
+            layers: layers, // Use the layers array
+            view: new ol.View({
+                projection: 'EPSG:4326',
+                center: centerLonLat,
+                zoom: initialZoom
+            })
+        });
+
+        // --- Sidebar Setup ---
+
+        // Function to build the layer switcher
+        function setupLayerSwitcher() {
+            const layerSwitcherDiv = document.getElementById('layer-switcher');
+
+            layers.forEach((layer, index) => {
+                const layerId = `layer-${index}`; // Unique ID for checkbox/label
+                const layerTitle = layer.get('title') || `Layer ${index + 1}`; // Get title or use default
+                const isVisible = layer.getVisible();
+
+                // Create checkbox element
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = layerId;
+                checkbox.checked = isVisible;
+
+                // Create label element
+                const label = document.createElement('label');
+                label.htmlFor = layerId;
+                label.textContent = layerTitle;
+
+                // Create container for checkbox and label
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'layer-item';
+                itemDiv.appendChild(checkbox);
+                itemDiv.appendChild(label);
+
+                // Add event listener to toggle layer visibility
+                checkbox.addEventListener('change', function() {
+                    layer.setVisible(this.checked);
+                });
+
+                // Add the item to the layer switcher div
+                layerSwitcherDiv.appendChild(itemDiv);
+            });
+        }
+
+        // Function to build the legend
+        function setupLegend() {
+            const legendDiv = document.getElementById('legend');
+
+            layers.forEach(layer => {
+                const layerTitle = layer.get('title');
+                const source = layer.getSource();
+
+                // Check if it's a WMS source and has a LAYERS param
+                if (source instanceof ol.source.ImageWMS || source instanceof ol.source.TileWMS) {
+                    const wmsParams = source.getParams();
+                    const layerName = wmsParams.LAYERS;
+
+                    if (layerName) {
+                        // Construct GetLegendGraphic URL - ADD SLD_VERSION
+                        const legendUrl = `${wmsUrl}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetLegendGraphic&FORMAT=image/png&LAYER=${layerName}&MAP=${mapFilePath}&TRANSPARENT=true&SLD_VERSION=1.1.0`; // <-- Added SLD_VERSION
+
+                        // Add title for the legend item
+                        const titleElement = document.createElement('p');
+                        titleElement.textContent = layerTitle || layerName;
+                        legendDiv.appendChild(titleElement);
+
+                        // Create image element for the legend graphic
+                        const img = document.createElement('img');
+                        img.src = legendUrl;
+                        img.alt = `${layerTitle || layerName} Legend`;
+                        legendDiv.appendChild(img);
+                    }
+                }
+            });
+        }
+
+        // Initialize sidebar components after the DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            setupLayerSwitcher();
+            setupLegend();
+        });
+
+    </script>
+</body>
+</html>

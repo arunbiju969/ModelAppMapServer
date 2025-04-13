@@ -1,0 +1,208 @@
+# This is a MapServer map file template for serving WMS and WFS layers.
+# To use this template, ensure your data paths and projections are correctly configured.
+# For more information, visit: https://mapserver.org/mapfile/index.html
+
+# Start of MapFile: my_service.map
+MAP
+  NAME "MyShapefileService" # A name for your service
+  STATUS ON
+  UNITS DD      # To this (Decimal Degrees)
+  EXTENT -65.104180 44.919037 -65.030632 44.968940 # Correct combined extent in EPSG:4326
+  SIZE 600 400 # Default image size for WMS GetMap requests
+  IMAGECOLOR 255 255 255 # White background color
+
+  # --- Add Font and Symbol Set ---
+  FONTSET "C:\\ms4w\\apps\\etc\\fonts.txt"     # Path to font definitions
+  SYMBOLSET "C:\\ms4w\\apps\\etc\\symbols.txt" # Path to symbol definitions
+
+  # --- Projection Settings ---
+  # Output projection for the map (WMS/WFS requests can override this)
+  PROJECTION
+    "init=epsg:4326" # Example: WGS84 Lat/Lon - Common for web services
+  END
+
+  # --- Web Interface Settings (Crucial for WMS/WFS) ---
+  WEB
+    # Path where MapServer can write temporary images (for WMS)
+    # Ensure your web server process (e.g., Apache) has WRITE permission here!
+    IMAGEPATH "C:/ms4w/tmp/ms_tmp/" # Adjust path for your setup
+
+    # URL corresponding to the IMAGEPATH, accessible by browsers
+    IMAGEURL "/ms_tmp/" # Adjust path for your setup
+
+    # --- METADATA Section (Essential for enabling services) ---
+    METADATA
+      # WMS Settings
+      "wms_title"           "My Custom Shapefile WMS Service" # Title shown in client GetCapabilities
+      "wms_onlineresource"  "http://127.0.0.1/cgi-bin/mapserv.exe?map=C:/ms4w/apps/ModelApp/my_service.map" # IMPORTANT: URL to access this service via WMS
+      "wms_srs"             "EPSG:4326 EPSG:3857 EPSG:26920" # Added native CRS
+      "wms_enable_request"  "*" # Enable all WMS requests (GetMap, GetCapabilities, GetFeatureInfo)
+
+      # WFS Settings
+      "wfs_title"           "My Custom Shapefile WFS Service" # Title shown in client GetCapabilities
+      "wfs_onlineresource"  "http://127.0.0.1/cgi-bin/mapserv.exe?map=C:/ms4w/apps/ModelApp/my_service.map" # IMPORTANT: URL to access this service via WFS
+      "wfs_srs"             "EPSG:4326 EPSG:3857" # Space-separated list of CRS your WFS supports
+      "wfs_enable_request"  "*" # Enable all WFS requests (GetCapabilities, DescribeFeatureType, GetFeature)
+      "wfs_encoding"        "UTF-8" # Encoding for WFS output
+    END # End METADATA
+  END # End WEB
+
+  # --- Layer Definition (Your Shapefile) ---
+  LAYER
+    NAME "Forest" # Unique name for this layer (used in WMS/WFS requests)
+    STATUS ON # Make layer available
+    TYPE POLYGON # Or LINE or POINT - Match your shapefile geometry type
+    DATA "C:\\ms4w\\apps\\ModelApp\\MtonData4QGIS\\forest" # Path to your shapefile WITHOUT the .shp extension
+
+    # --- Layer METADATA (Essential for exposing layer via WMS/WFS) ---
+    METADATA
+      "wms_title"       "Middleton Forest Classification based on Age" # Human-readable title for WMS
+      "wms_srs"         "EPSG:4326 EPSG:3857" # CRS the layer can be requested in (MapServer will reproject)
+      "wms_include_items" "all" # Include all attributes in WMS GetFeatureInfo results
+
+      "gml_featureid"   "FOREST_ID" # IMPORTANT: Attribute field name in your DBF that contains unique IDs for each feature. Adjust "OBJECTID" to your actual unique ID field name!
+      "gml_include_items" "all" # Include all attributes in WFS GetFeature results. Or list specific fields: "ATTRIBUTE1,ATTRIBUTE2"
+      "gml_types"       "auto"    # Automatically determine geometry type for WFS
+      "wfs_title"       "Middleton Forest Polygons" # Human-readable title for WFS (Updated for clarity)
+      "wfs_srs"         "EPSG:4326 EPSG:3857" # CRS the layer can be requested in for WFS
+    END # End METADATA
+
+    # --- Layer Projection (Native projection of the Shapefile data) ---
+    PROJECTION
+      "init=epsg:26920" # NAD83 / UTM Zone 20N
+    END
+
+    # --- Styling and Labeling based on 'age' attribute ---
+    CLASSITEM "age" # Attribute to use for styling expressions
+    LABELITEM "age" # Attribute to use for labels
+
+    # --- Label Settings (Apply to all labels in this layer unless overridden in CLASS) ---
+    LABELMAXSCALEDENOM 50000 # Don't draw labels when zoomed out beyond 1:50000
+
+    CLASS
+      NAME "No Age Data" # Style for features where age is 0 or null
+      EXPRESSION ([age] = 0)
+      STYLE
+        COLOR 80 80 80 # Grey
+        OUTLINECOLOR 0 0 0 # Black outline
+      END # STYLE
+    END # CLASS
+
+    CLASS
+      NAME "Young Forest" # Style for features where age is 1-49
+      EXPRESSION ([age] > 0 AND [age] < 50)
+      STYLE
+        COLOR 120 230 110 # Light green
+        OUTLINECOLOR 0 0 0 # Black outline
+      END # STYLE
+      LABEL # Define label appearance for this class
+        TYPE TRUETYPE
+        FONT "sans"   # Changed to use defined alias
+        SIZE 8
+        COLOR 0 0 0 # Black label text
+        POSITION CC # Center-Center position within the polygon
+        PARTIALS FALSE # Don't draw partial labels
+      END # END LABEL
+    END # CLASS
+
+    CLASS
+      NAME "Mature Forest" # Style for features where age is 50-99
+      EXPRESSION ([age] >= 50 AND [age] < 100)
+      STYLE
+        COLOR 76 153 0 # Medium green
+        OUTLINECOLOR 0 0 0 # Black outline
+      END # STYLE
+      LABEL # Define label appearance for this class
+        TYPE TRUETYPE
+        FONT "sans"   # Changed
+        SIZE 9 # Slightly larger for mature forest
+        COLOR 0 0 0
+        POSITION CC
+        PARTIALS FALSE
+      END # END LABEL
+    END # CLASS
+
+    CLASS
+      NAME "Old Growth Forest" # Style for features where age is 100+
+      EXPRESSION ([age] >= 100)
+      STYLE
+        COLOR 38 115 0 # Dark green
+        OUTLINECOLOR 0 0 0 # Black outline
+      END # STYLE
+      LABEL # Define label appearance for this class
+        TYPE TRUETYPE
+        FONT "sans"   # Changed
+        SIZE 10 # Even larger for old growth
+        COLOR 0 0 0
+        POSITION CC
+        PARTIALS FALSE
+      END # END LABEL
+    END # CLASS
+  END # End LAYER
+
+  LAYER
+    NAME "roads"
+    METADATA
+      "wms_title" "Middleton Roads" # Title for WMS GetCapabilities
+      "wms_srs"   "EPSG:26920 EPSG:4326" # Projections supported by WMS
+      "wfs_title" "Middleton Roads" # Title for WFS GetCapabilities
+      "wfs_srs"   "EPSG:26920 EPSG:4326" # Projections supported by WFS
+      # Expose all attributes via WFS GetFeature requests
+      "gml_include_items" "all"
+      # Optional: Specify which attribute column contains the unique feature ID
+      "gml_featureid" "SEGID" # Adjust 'OBJECTID' if your ID column is different
+    END # METADATA
+    TYPE LINE
+    STATUS ON # Make it visible by default in WMS
+    # Adjust the path if your SHAPEPATH is different or map file location changes
+    DATA "C:\\ms4w\\apps\\ModelApp\\MtonData4QGIS\\MtonRoads"
+    # Projection is NAD83 / UTM Zone 20N (EPSG:26920) based on MtonRoads.prj
+    PROJECTION
+      "init=epsg:26920"
+    END
+    # Define how the roads look in WMS images
+    CLASS
+      NAME "Roads"
+      STYLE
+        COLOR 210 0 0 # Changed to Red (R G B)
+        WIDTH 1
+      END # STYLE
+    END # CLASS
+  END # LAYER roads
+
+  # --- Layer Definition (Buildings) ---
+  LAYER
+    NAME "buildings"
+    METADATA
+      "wms_title" "Middleton Buildings" # Title for WMS GetCapabilities
+      "wms_srs"   "EPSG:26920 EPSG:4326" # Projections supported by WMS
+      "wfs_title" "Middleton Buildings" # Title for WFS GetCapabilities
+      "wfs_srs"   "EPSG:26920 EPSG:4326" # Projections supported by WFS
+      # Expose all attributes via WFS GetFeature requests
+      "gml_include_items" "all"
+      # Specify the unique feature ID column name
+      "gml_featureid" "BUILDINGS1" # Using the ID field you specified
+    END # METADATA
+    TYPE POINT # Changed from POLYGON
+    STATUS ON # Make it visible by default in WMS
+    DATA "C:\\ms4w\\apps\\ModelApp\\MtonData4QGIS\\MtonBldgs" # Path to shapefile (no extension)
+
+    MAXSCALEDENOM 40000 # <-- ADD THIS LINE (Buildings appear when scale is < 1:50000)
+
+    # Assuming the projection is the same as other layers (NAD83 / UTM Zone 20N)
+    PROJECTION
+      "init=epsg:26920"
+    END
+    # Define how the buildings look in WMS images
+    CLASS
+      NAME "Buildings"
+      STYLE
+        SYMBOL 'square'
+        COLOR 150 150 150    # Medium Grey fill for the square
+        OUTLINECOLOR 0 0 0 # Black outline
+        SIZE 8             # Make the symbol slightly larger
+      END # STYLE
+    END # CLASS
+  END # LAYER buildings
+
+END # End MAP
